@@ -379,7 +379,7 @@ mt76_power_on_rf(struct mt76_dev *dev, int unit)
 }
 
 static void
-mt76_power_on(struct mt76_dev *dev)
+mt76_soc_power_on(struct mt76_dev *dev)
 {
 	u32 val;
 
@@ -514,7 +514,8 @@ int mt76_init_hardware(struct mt76_dev *dev)
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 
 	mt76_reset_wlan(dev, true);
-	mt76_power_on(dev);
+	if (is_soc(dev))
+		mt76_soc_power_on(dev);
 
 	ret = mt76_eeprom_init(dev);
 	if (ret)
