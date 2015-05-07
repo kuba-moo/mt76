@@ -95,19 +95,23 @@ static int mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 static void
 mt76_eeprom_parse_hw_cap(struct mt76_dev *dev)
 {
-	u16 val = MT_EE_NIC_CONF_0;
+	if (is_mt76x2(dev)) {
+		u16 val = MT_EE_NIC_CONF_0;
 
-	switch (MT76_GET(MT_EE_NIC_CONF_0_BOARD_TYPE, val)) {
-	case BOARD_TYPE_5GHZ:
-		dev->cap.has_5ghz = true;
-		break;
-	case BOARD_TYPE_2GHZ:
+		switch (MT76_GET(MT_EE_NIC_CONF_0_BOARD_TYPE, val)) {
+		case BOARD_TYPE_5GHZ:
+			dev->cap.has_5ghz = true;
+			break;
+		case BOARD_TYPE_2GHZ:
+			dev->cap.has_2ghz = true;
+			break;
+		default:
+			dev->cap.has_2ghz = true;
+			dev->cap.has_5ghz = true;
+			break;
+		}
+	} else {
 		dev->cap.has_2ghz = true;
-		break;
-	default:
-		dev->cap.has_2ghz = true;
-		dev->cap.has_5ghz = true;
-		break;
 	}
 }
 
@@ -181,7 +185,12 @@ mt76_get_efuse_data(struct mt76_dev *dev, int len)
 static int
 mt76_eeprom_load(struct mt76_dev *dev)
 {
-	int len = MT7662_EEPROM_SIZE;
+	int len;
+
+	if (is_mt7630(dev))
+		len = MT7630_EEPROM_SIZE;
+	else
+		len = MT7662_EEPROM_SIZE;
 
 	dev->eeprom.size = len;
 	dev->eeprom.data = devm_kzalloc(dev->dev, len, GFP_KERNEL);
