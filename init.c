@@ -427,7 +427,7 @@ mt76_set_wlan_state(struct mt76_dev *dev, bool enable)
 			 MT_WLAN_FUN_CTRL_WLAN_CLK_EN);
 
 	mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
-	udelay(20);
+	udelay(50);
 }
 
 static void
@@ -442,13 +442,13 @@ mt76_reset_wlan(struct mt76_dev *dev, bool enable)
 	if (val & MT_WLAN_FUN_CTRL_WLAN_EN) {
 		val |= MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
 		mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
-		udelay(20);
+		udelay(50);
 
 		val &= ~MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
 	}
 
 	mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
-	udelay(20);
+	udelay(50);
 
 	mt76_set_wlan_state(dev, enable);
 }
