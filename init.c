@@ -537,6 +537,11 @@ void mt76_cleanup(struct mt76_dev *dev)
 	mt76_mcu_cleanup(dev);
 }
 
+static void mt76_free_ieee80211_hw(void *ptr)
+{
+	ieee80211_free_hw(ptr);
+}
+
 struct mt76_dev *mt76_alloc_device(struct device *pdev)
 {
 	struct ieee80211_hw *hw;
@@ -545,6 +550,7 @@ struct mt76_dev *mt76_alloc_device(struct device *pdev)
 	hw = ieee80211_alloc_hw(sizeof(*dev), &mt76_ops);
 	if (!hw)
 		return NULL;
+	devm_add_action(pdev, mt76_free_ieee80211_hw, hw);
 
 	dev = hw->priv;
 	dev->dev = pdev;

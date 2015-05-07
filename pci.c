@@ -85,11 +85,11 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ret = devm_request_irq(dev->dev, pdev->irq, mt76_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
-		goto error;
+		return ret;
 
 	ret = mt76_register_device(dev);
 	if (ret)
-		goto error;
+		return ret;
 
 	/* Fix up ASPM configuration */
 
@@ -104,10 +104,6 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	printk("pci device driver attached\n");
 	return 0;
-
-error:
-	ieee80211_free_hw(dev->hw);
-	return ret;
 }
 
 static void
@@ -117,7 +113,6 @@ mt76pci_remove(struct pci_dev *pdev)
 
 	ieee80211_unregister_hw(dev->hw);
 	mt76_cleanup(dev);
-	ieee80211_free_hw(dev->hw);
 	printk("pci device driver detached\n");
 }
 
