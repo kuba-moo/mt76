@@ -258,6 +258,27 @@ static inline bool is_mt7612(struct mt76_dev *dev)
 	return (dev->rev >> 16) == 0x7612;
 }
 
+static inline bool is_mt7630(struct mt76_dev *dev)
+{
+	return (dev->rev >> 16) == 0x7630;
+}
+
+static inline bool is_mt76x2(struct mt76_dev *dev)
+{
+	return (dev->rev >> 16) == 0x7602 || (dev->rev >> 16) == 0x7612 ||
+	       (dev->rev >> 16) == 0x7632 || (dev->rev >> 16) == 0x7662;
+}
+
+static inline bool is_soc(struct mt76_dev *dev)
+{
+	return !is_mt7630(dev);
+}
+
+static inline bool is_combo(struct mt76_dev *dev)
+{
+	return is_mt7630(dev);
+}
+
 static inline u16 mt76xx_rev(struct mt76_dev *dev)
 {
 	return dev->rev & 0xffff;
