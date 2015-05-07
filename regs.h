@@ -26,6 +26,8 @@
 #define MT76XX_REV_E4		0x33
 
 #define MT_CMB_CTRL			0x0020
+#define MT_CMB_CTRL_RESV		BIT(11)
+#define MT_CMB_CTRL_TRSW1_AS_GPIO	BIT(14)
 #define MT_CMB_CTRL_XTAL_RDY		BIT(22)
 #define MT_CMB_CTRL_PLL_LD		BIT(23)
 

@@ -414,6 +414,17 @@ mt76_power_on(struct mt76_dev *dev)
 	mt76_power_on_rf(dev, 1);
 }
 
+static void mt76_setup_combo(struct mt76_dev *dev)
+{
+	if (!mt76_poll(dev, MT_CMB_CTRL,
+		       MT_CMB_CTRL_XTAL_RDY | MT_CMB_CTRL_PLL_LD,
+		       MT_CMB_CTRL_XTAL_RDY | MT_CMB_CTRL_PLL_LD, 10000))
+		printk("Error: combo clock failed\n");
+
+	mt76_set(dev, MT_CMB_CTRL,
+		 MT_CMB_CTRL_RESV | MT_CMB_CTRL_TRSW1_AS_GPIO);
+}
+
 static void
 mt76_set_wlan_state(struct mt76_dev *dev, bool enable)
 {
@@ -438,19 +449,29 @@ mt76_reset_wlan(struct mt76_dev *dev, bool enable)
 	val = mt76_rr(dev, MT_WLAN_FUN_CTRL);
 
 	val &= ~MT_WLAN_FUN_CTRL_FRC_WL_ANT_SEL;
+	if (is_combo(dev))
+		val |= (MT_WLAN_FUN_CTRL_GPIO_OUT |
+			MT_WLAN_FUN_CTRL_GPIO_OUT_EN);
 
 	if (val & MT_WLAN_FUN_CTRL_WLAN_EN) {
-		val |= MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
+		u32 reset_bits = MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
+
+		if (!is_mt76x2(dev))
+			reset_bits |= MT_WLAN_FUN_CTRL_WLAN_RESET;
+
+		val |= reset_bits;
 		mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
 		udelay(50);
 
-		val &= ~MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
+		val &= ~reset_bits;
 	}
 
 	mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
 	udelay(50);
 
 	mt76_set_wlan_state(dev, enable);
+	if (is_combo(dev))
+		mt76_setup_combo(dev);
 }
 
 int mt76_init_hardware(struct mt76_dev *dev)
