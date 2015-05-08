@@ -16,10 +16,44 @@
 #include <linux/pci.h>
 
 #include "mt76.h"
+#include "mcu.h"
 #include "trace.h"
 
+enum mt76_boards {
+	board_mt7630,
+	board_mt7662,
+};
+
+static const struct mt76_dev_param mt7630_param = {
+	.ram_code_protect = true,
+	.eeprom_size = 272,
+	.ilm_offset = 0,
+	.dlm_offset = 0x80000,
+	.dlm_addr = 0x80000,
+	.fw_trgr_reg = MT_MCU_INT_LEVEL,
+	.fw_trgr_val = 3,
+	.firmware_name = MT7630_FIRMWARE,
+};
+
+static const struct mt76_dev_param mt7662_param = {
+	.rom_code_protect = true,
+	.eeprom_size = 512,
+	.ilm_offset = 0x80000,
+	.dlm_offset = 0x110000,
+	.dlm_addr = 0x90000,
+	.fw_trgr_reg = MT_MCU_INT_LEVEL,
+	.fw_trgr_val = 2,
+	.firmware_name = MT7662_FIRMWARE,
+	.rom_patch_name = MT7662_ROM_PATCH,
+};
+
+static const struct mt76_dev_param *mt76_info_tbl[] = {
+	[board_mt7630] = &mt7630_param,
+	[board_mt7662] = &mt7662_param,
+};
+
 static const struct pci_device_id mt76pci_device_table[] = {
-	{ PCI_DEVICE(0x14c3, 0x7662) },
+	{ PCI_DEVICE(0x14c3, 0x7662), .driver_data = board_mt7662, },
 	{ },
 };
 
@@ -76,6 +110,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return -ENOMEM;
 
 	dev->regs = pcim_iomap_table(pdev)[0];
+	dev->param = mt76_info_tbl[id->driver_data];
 
 	pci_set_drvdata(pdev, dev);
 

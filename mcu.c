@@ -27,6 +27,7 @@ struct mt76_fw_header {
 	__le16 fw_ver;
 	u8 pad[4];
 	char build_time[16];
+	__le32 data[];
 };
 
 struct mt76_patch_header {
@@ -118,7 +119,7 @@ out:
 }
 
 static void
-write_data(struct mt76_dev *dev, u32 offset, __le32 *data, int len)
+write_data(struct mt76_dev *dev, u32 offset, const __le32 *data, int len)
 {
 	__iowrite32_copy(dev->regs + offset, data, len / 4);
 }
@@ -132,10 +133,8 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 	__le32 *cur;
 	u32 patch_mask, patch_reg;
 
-	if (!mt76_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
-		printk("Could not get hardware semaphore for ROM PATCH\n");
-		return -ETIMEDOUT;
-	}
+	if (!dev->param->rom_patch_name)
+		return 0;
 
 	if (mt76xx_rev(dev) >= MT76XX_REV_E3) {
 		patch_mask = BIT(0);
@@ -145,12 +144,19 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 		patch_reg = MT_MCU_COM_REG0;
 	}
 
-	if (mt76_rr(dev, patch_reg) & patch_mask) {
-		printk("ROM patch already applied\n");
-		goto out;
+	if (dev->param->rom_code_protect) {
+		if (!mt76_poll_msec(dev, MT_MCU_SEMAPHORE_03, 1, 1, 60)) {
+			printk("Could not get semaphore for ROM PATCH\n");
+			return -ETIMEDOUT;
+		}
+
+		if (mt76_rr(dev, patch_reg) & patch_mask) {
+			printk("ROM patch already applied\n");
+			goto out;
+		}
 	}
 
-	ret = request_firmware(&fw, MT7662_ROM_PATCH, dev->dev);
+	ret = request_firmware(&fw, dev->param->rom_patch_name, dev->dev);
 	if (ret)
 		goto out;
 
@@ -181,21 +187,67 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 
 out:
 	/* release semaphore */
-	mt76_wr(dev, MT_MCU_SEMAPHORE_03, 1);
+	if (dev->param->rom_code_protect)
+		mt76_wr(dev, MT_MCU_SEMAPHORE_03, 1);
 	release_firmware(fw);
 	return ret;
 }
 
+static void
+mt76pci_load_firmware_ilm(struct mt76_dev *dev, const struct mt76_fw_header *fw)
+{
+	const u32 ilm_len = le32_to_cpu(fw->ilm_len);
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, dev->param->ilm_offset);
+
+	if (dev->param->ram_code_protect) {
+		write_data(dev, MT_MCU_ILM_ADDR + MT_MCU_IVB_SIZE,
+			   fw->data + MT_MCU_IVB_SIZE / sizeof(*fw->data),
+			   ilm_len - MT_MCU_IVB_SIZE);
+		write_data(dev, MT_MCU_IVB_LOAD_ADDR,
+			   fw->data, MT_MCU_IVB_SIZE);
+	} else {
+		write_data(dev, MT_MCU_ILM_ADDR, fw->data, ilm_len);
+	}
+}
+
+static void
+mt76pci_load_firmware_dlm(struct mt76_dev *dev, const struct mt76_fw_header *fw)
+{
+	const u32 dlm_len = le32_to_cpu(fw->dlm_len);
+	const __le32 *cur;
+	u32 offset, addr;
+
+	cur = fw->data + le32_to_cpu(fw->ilm_len) / sizeof(*fw->data);
+
+	offset = dev->param->dlm_offset;
+	addr = dev->param->dlm_addr;
+
+	if (is_mt76x2(dev)) {
+		offset -= 0x10000;
+		if (mt76xx_rev(dev) >= MT76XX_REV_E3)
+			addr += 0x800;
+	}
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, offset);
+	write_data(dev, addr, cur, dlm_len);
+}
+
 static int
-mt76pci_load_firmware(struct mt76_dev *dev)
+__mt76pci_load_firmware(struct mt76_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt76_fw_header *hdr;
 	int len, ret;
-	__le32 *cur;
-	u32 offset, val;
+	u32 val;
 
-	ret = request_firmware(&fw, MT7662_FIRMWARE, dev->dev);
+	if (dev->param->ram_code_protect)
+		if (mt76_rr(dev, MT_MCU_COM_REG0) & 1) {
+			printk("Firmware already loaded\n");
+			return 0;
+		}
+
+	ret = request_firmware(&fw, dev->param->firmware_name, dev->dev);
 	if (ret)
 		return ret;
 
@@ -219,27 +271,12 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 	printk("Build: %x\n", val);
 	printk("Build Time: %.16s\n", hdr->build_time);
 
-	cur = (__le32 *) (fw->data + sizeof(*hdr));
-	len = le32_to_cpu(hdr->ilm_len);
-
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ILM_OFFSET);
-	write_data(dev, MT_MCU_ILM_ADDR, cur, len);
-
-	cur += len / sizeof(*cur);
-	len = le32_to_cpu(hdr->dlm_len);
-
-	if (mt76xx_rev(dev) >= MT76XX_REV_E3)
-		offset = MT_MCU_DLM_ADDR_E3;
-	else
-		offset = MT_MCU_DLM_ADDR;
-
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
-	write_data(dev, offset, cur, len);
+	mt76pci_load_firmware_ilm(dev, hdr);
+	mt76pci_load_firmware_dlm(dev, hdr);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
-	/* trigger firmware */
-	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
+	mt76_wr(dev, dev->param->fw_trgr_reg, dev->param->fw_trgr_val);
 	if (!mt76_poll_msec(dev, MT_MCU_COM_REG0, 1, 1, 2000)) {
 		printk("Firmware failed to start\n");
 		release_firmware(fw);
@@ -256,6 +293,25 @@ error:
 	printk("Invalid firmware\n");
 	release_firmware(fw);
 	return -ENOENT;
+}
+
+static int
+mt76pci_load_firmware(struct mt76_dev *dev)
+{
+	int ret;
+
+	if (dev->param->ram_code_protect)
+		if (!mt76_poll_msec(dev, MT_MCU_SEMAPHORE_00, 1, 1, 60)) {
+			printk("Could not get semaphore for FIRMWARE\n");
+			return -ETIMEDOUT;
+		}
+
+	ret = __mt76pci_load_firmware(dev);
+
+	if (dev->param->ram_code_protect)
+		mt76_wr(dev, MT_MCU_SEMAPHORE_00, 1);
+
+	return ret;
 }
 
 static int

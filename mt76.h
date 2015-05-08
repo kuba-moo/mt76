@@ -32,6 +32,7 @@
 #define MT7662_ROM_PATCH	"mt7662_rom_patch.bin"
 #define MT7662_EEPROM_SIZE	512
 
+#define MT7630_FIRMWARE		"mt7630.bin"
 #define MT7630_EEPROM_SIZE	272
 
 #define MT_RX_BUF_SIZE		2048
@@ -49,6 +50,20 @@
 #include "regs.h"
 #include "util.h"
 #include "mac.h"
+
+struct mt76_dev_param {
+	bool rom_code_protect, ram_code_protect;
+
+	u16 eeprom_size;
+
+	u32 ilm_offset, dlm_offset;
+	u32 dlm_addr;
+
+	u16 fw_trgr_reg, fw_trgr_val;
+
+	char *firmware_name;
+	char *rom_patch_name;
+};
 
 struct mt76_queue_entry {
 	struct sk_buff *skb;
@@ -146,6 +161,7 @@ struct mt76_hw_cap {
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 	struct device *dev;
+	const struct mt76_dev_param *param;
 	u8 macaddr[ETH_ALEN];
 	struct mac_address macaddr_list[8];
 
