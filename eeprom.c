@@ -185,22 +185,15 @@ mt76_get_efuse_data(struct mt76_dev *dev, int len)
 static int
 mt76_eeprom_load(struct mt76_dev *dev)
 {
-	int len;
-
-	if (is_mt7630(dev))
-		len = MT7630_EEPROM_SIZE;
-	else
-		len = MT7662_EEPROM_SIZE;
-
-	dev->eeprom.size = len;
-	dev->eeprom.data = devm_kzalloc(dev->dev, len, GFP_KERNEL);
+	dev->eeprom.size = dev->param->eeprom_size;
+	dev->eeprom.data = devm_kzalloc(dev->dev, dev->eeprom.size, GFP_KERNEL);
 	if (!dev->eeprom.data)
 		return -ENOMEM;
 
-	if (!mt76_get_of_eeprom(dev, len))
+	if (!mt76_get_of_eeprom(dev, dev->eeprom.size))
 		return 0;
 
-	if (!mt76_get_efuse_data(dev, len))
+	if (!mt76_get_efuse_data(dev, dev->eeprom.size))
 		return 0;
 
 	return -ENOENT;
