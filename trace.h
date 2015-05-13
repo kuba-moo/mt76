@@ -163,6 +163,20 @@ TRACE_EVENT(dev_irq,
 	)
 );
 
+TRACE_EVENT(dev_mcu_msg_send,
+	TP_PROTO(struct mt76_dev *dev, u32 info),
+	TP_ARGS(dev, info),
+	TP_STRUCT__entry(
+		DEV_ENTRY
+		__field(u32, info)
+	),
+	TP_fast_assign(
+		DEV_ASSIGN;
+		__entry->info = info;
+	),
+	TP_printk(DEV_PR_FMT " i:%08x", DEV_PR_ARG, __entry->info)
+);
+
 #endif
 
 #undef TRACE_INCLUDE_PATH

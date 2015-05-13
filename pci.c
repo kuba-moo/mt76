@@ -53,6 +53,7 @@ static const struct mt76_dev_param *mt76_info_tbl[] = {
 };
 
 static const struct pci_device_id mt76pci_device_table[] = {
+	{ PCI_DEVICE(0x14c3, 0x7630), .driver_data = board_mt7630, },
 	{ PCI_DEVICE(0x14c3, 0x7662), .driver_data = board_mt7662, },
 	{ },
 };

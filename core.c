@@ -59,6 +59,18 @@ void mt76_write_reg_pairs(struct mt76_dev *dev,
 	}
 }
 
+void mt76_write_reg_pairs_cond(struct mt76_dev *dev,
+			       const struct mt76_reg_pair_cond *data, int len,
+			       u32 mask, u32 val)
+{
+	while (len > 0) {
+		if (data->flags & mask == val)
+			mt76_wr(dev, data->p.reg, data->p.value);
+		len--;
+		data++;
+	}
+}
+
 void mt76_set_irq_mask(struct mt76_dev *dev, u32 clear, u32 set)
 {
 	unsigned long flags;

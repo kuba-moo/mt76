@@ -16,6 +16,22 @@
 #include "mcu.h"
 #include "eeprom.h"
 
+int mt76_phy_rf_wr(struct mt76_dev *dev, u8 bank, u8 reg, u8 val)
+{
+	u32 reg;
+
+	if (!mt76_poll(dev, MT_RF_CTRL, MT_RF_CTRL_BUSY, 0, 1000))
+		return -ETIMEDOUT;
+
+	reg = MT_RF_CSR_CFG_WRITE | MT_RF_CSR_CFG_BUSY |
+		MT_SET(MT_RF_CSR_CFG_DATA, val) |
+		MT_SET(MT_RF_CSR_CFG_REG_ID, reg) |
+		MT_SET(MT_RF_CSR_CFG_REG_BANK, bank);
+	mt76_wr(dev, MT_RF_CSR_CFG, reg);
+
+	return 0;
+}
+
 static bool
 mt76_phy_rf_op(struct mt76_dev *dev, bool idx, u16 offset, bool write)
 {

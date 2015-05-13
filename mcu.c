@@ -19,6 +19,7 @@
 #include "mcu.h"
 #include "dma.h"
 #include "eeprom.h"
+#include "trace.h"
 
 struct mt76_fw_header {
 	__le32 ilm_len;
@@ -89,6 +90,8 @@ mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 	ret = __mt76_tx_queue_skb(dev, MT_TXQ_MCU, skb, info);
 	if (ret)
 		goto out;
+
+	trace_dev_mcu_msg_send(dev, info);
 
 	while (1) {
 		u32 *rxfce;

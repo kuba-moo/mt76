@@ -238,9 +238,27 @@ struct mt76_txq {
 	struct sk_buff_head retry_q;
 };
 
+#define REG_PAIR_COND_BW		GENMASK(1, 0)
+
 struct mt76_reg_pair {
 	u32 reg;
 	u32 value;
+};
+
+struct mt76_reg_pair_cond {
+	u32 flags;
+	struct mt76_reg_pair p;
+};
+
+struct mt76_rf_reg_pair {
+	u8 bank;
+	u8 reg;
+	u8 value;
+};
+
+struct mt76_rf_reg_pair_cond {
+	u32 flags;
+	struct mt76_rf_reg_pair p;
 };
 
 u32 mt76_rr(struct mt76_dev *dev, u32 offset);
@@ -254,6 +272,9 @@ bool mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 		    int timeout);
 void mt76_write_reg_pairs(struct mt76_dev *dev,
 			  const struct mt76_reg_pair *data, int len);
+void mt76_write_reg_pairs_cond(struct mt76_dev *dev,
+			       const struct mt76_reg_pair_cond *data, int len,
+			       u32 mask, u32 val);
 
 #define mt76_get_field(_dev, _reg, _field)		\
 	MT76_GET(_field, mt76_rr(dev, _reg))

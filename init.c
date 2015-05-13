@@ -58,14 +58,25 @@ mt76_mac_pbf_init(struct mt76_dev *dev)
 	mt76_set(dev, MT_PBF_SYS_CTRL, val);
 	mt76_clear(dev, MT_PBF_SYS_CTRL, val);
 
-	mt76_wr(dev, MT_PBF_TX_MAX_PCNT, 0xefef3f1f);
-	mt76_wr(dev, MT_PBF_RX_MAX_PCNT, 0xfebf);
+	if (is_mt7630(dev)) {
+		/* mt76 does not use MAC_SYS reset for some reason.
+		 * we add it here temporarily but it's not the right place */
+		mt76_set(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_RESET_CSR |
+					       MT_MAC_SYS_CTRL_RESET_BBP);
+
+		mt76_wr(dev, MT_PBF_TX_MAX_PCNT, 0x1fbf1f1f);
+		mt76_wr(dev, MT_PBF_RX_MAX_PCNT, 0xfe9f);
+	} else {
+		mt76_wr(dev, MT_PBF_TX_MAX_PCNT, 0xefef3f1f);
+		mt76_wr(dev, MT_PBF_RX_MAX_PCNT, 0xfebf);
+	}
 }
 
 static void
 mt76_write_mac_initvals(struct mt76_dev *dev)
 {
 	static const struct mt76_reg_pair vals[] = {
+#if 0
 		/* Copied from MediaTek reference source */
 		{ MT_PBF_SYS_CTRL,		0x00080c00 },
 		{ MT_PBF_CFG,			0x1efebcff },
@@ -118,6 +129,61 @@ mt76_write_mac_initvals(struct mt76_dev *dev)
 		{ MT_TX_SW_CFG3,		0x00000004 },
 		{ MT_HT_FBK_TO_LEGACY,		0x00001818 },
 		{ MT_VHT_HT_FBK_CFG1,		0xedcba980 },
+#else
+		/* These initvals come from rt2x00 and many of them may have
+		 * very limited relevance for mt76. Let's keep them for now
+		 * to get the driver going and drop them later. */
+		{ MT_PWR_PIN_CFG,		0x00000000 },
+		{ MT_LEGACY_BASIC_RATE,		0x0000013f },
+		{ MT_HT_BASIC_RATE,		0x00008003 },
+		{ MT_MAC_SYS_CTRL,		0x00000000 },
+		{ MT_RX_FILTR_CFG,		0x0001bf97 },
+		{ MT_BKOFF_SLOT_CFG,		0x00000209 },
+		{ MT_TX_SW_CFG0,		0x00000000 },
+		{ MT_TX_SW_CFG1,		0x00080606 },
+		{ MT_TX_LINK_CFG,		0x00001020 },
+		{ MT_TX_TIMEOUT_CFG,		0x000a2090 },
+		{ MT_LED_CFG,			0x7f031e46 },
+		{ MT_TX_RETRY_CFG,		0x47d01f0f },
+		{ MT_AUTO_RSP_CFG,		0x00000013 },
+		{ MT_CCK_PROT_CFG,		0x05740003 },
+		{ MT_OFDM_PROT_CFG,		0x05740003 },
+		{ MT_GF20_PROT_CFG,		0x01744004 },
+		{ MT_GF40_PROT_CFG,		0x03f44084 },
+		{ MT_MM20_PROT_CFG,		0x01744004 },
+		{ MT_MM40_PROT_CFG,		0x03f44084 },
+		{ MT_TXOP_CTRL_CFG,		0x0000583f },
+		{ MT_TXOP_HLDR_ET,		0x00000002 },
+		{ MT_TX_RTS_CFG,		0x00092b20 },
+		{ MT_EXP_ACK_TIME,		0x002400ca },
+		{ MT_XIFS_TIME_CFG,		0x33a41010 },
+		/* these are mt7630e specific */
+		{ MT_PBF_SYS_CTRL,		0x00080c00 },
+		{ MT_PBF_CFG,			0x77723c1f },
+		{ MT_FCE_PSE_CTRL,		0x00000001 },
+		{ MT_AMPDU_MAX_LEN_20M1S,	0xbaa99887 },
+		{ MT_TX_SW_CFG0,		0x00000600 },
+		{ MT_TX_SW_CFG1,		0x00000000 },
+		{ MT_TX_SW_CFG2,		0x00000000 },
+		{ 0xa44,			0x00000000 },
+		{ MT_HEADER_TRANS_CTRL_REG,	0x00000000 },
+		{ MT_TSO_CTRL,			0x00000000 },
+		{ MT_BB_PA_MODE_CFG1,		0x00500055 },
+		{ MT_RF_PA_MODE_CFG1,		0x00500055 },
+		{ MT_TX_ALC_CFG_0,		0x2f2f000c },
+		{ MT_TX0_BB_GAIN_ATTEN,		0x00000000 },
+		{ MT_TX0_RF_GAIN_CORR,		0x01010101 },
+		{ MT_TX_PWR_CFG_0,		0x3a3a3a3a },
+		{ MT_TX_PWR_CFG_1,		0x3a3a3a3a },
+		{ MT_TX_PWR_CFG_2,		0x3a3a3a3a },
+		{ MT_TX_PWR_CFG_3,		0x3a3a3a3a },
+		{ MT_TX_PWR_CFG_4,		0x3a3a3a3a },
+		{ MT_TX_PWR_CFG_7,		0x3a3a3a3a },
+		{ MT_TX_PWR_CFG_8,		0x0000003a },
+		{ MT_TX_PWR_CFG_9,		0x0000003a },
+		{ 0x150c,			0x00000002 },
+		//{ 0x1238,			0x001700c8 },
+#endif
 	};
 
 	mt76_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
@@ -197,12 +263,21 @@ int mt76_mac_reset(struct mt76_dev *dev, bool hard)
 		 MT_WPDMA_GLO_CFG_RX_DMA_BUSY |
 		 MT_WPDMA_GLO_CFG_DMA_BURST_SIZE);
 	val |= MT76_SET(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3);
+	/* TODO: for MT7630E we can enable clock gating by clearing BIT(30) */
 
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 
+	/* TODO: pwr_Cfg */
+
+	if (is_mt7630(dev)) {
+		mt76_wr(dev, MT_PWR_PIN_CFG, 0);
+		mt76_wr(dev, 0x0244, 0x18000000);
+	}
+
 	mt76_mac_pbf_init(dev);
 	mt76_write_mac_initvals(dev);
-	mt76_fixup_xtal(dev);
+	if (!is_mt7630(dev))
+		mt76_fixup_xtal(dev);
 
 	mt76_clear(dev, MT_MAC_SYS_CTRL,
 		   MT_MAC_SYS_CTRL_RESET_CSR |
@@ -212,14 +287,16 @@ int mt76_mac_reset(struct mt76_dev *dev, bool hard)
 		mt76_clear(dev, MT_COEXCFG0, MT_COEXCFG0_COEX_EN);
 
 	mt76_set(dev, MT_EXT_CCA_CFG, 0x0000f000);
-	mt76_clear(dev, MT_TX_ALC_CFG_4, BIT(31));
+	mt76_clear(dev, MT_TX_ALC_CFG_4, BIT(31)); /* This is just zeroed */
 
-	mt76_wr(dev, MT_RF_BYPASS_0, 0x06000000);
-	mt76_wr(dev, MT_RF_SETTING_0, 0x08800000);
-	msleep(5);
-	mt76_wr(dev, MT_RF_BYPASS_0, 0x00000000);
+	if (!is_mt7630(dev)) {
+		mt76_wr(dev, MT_RF_BYPASS_0, 0x06000000);
+		mt76_wr(dev, MT_RF_SETTING_0, 0x08800000);
+		msleep(5);
+		mt76_wr(dev, MT_RF_BYPASS_0, 0x00000000);
 
-	mt76_wr(dev, MT_MCU_CLOCK_CTL, 0x1401);
+		mt76_wr(dev, MT_MCU_CLOCK_CTL, 0x1401);
+	}
 	mt76_clear(dev, MT_FCE_L2_STUFF, MT_FCE_L2_STUFF_WR_MPDU_LEN_EN);
 
 	mt76_wr(dev, MT_MAC_ADDR_DW0, get_unaligned_le32(dev->macaddr));
@@ -514,6 +591,7 @@ int mt76_init_hardware(struct mt76_dev *dev)
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 
 	mt76_reset_wlan(dev, true);
+	printk("MAC revision: %08x\n", mt76_rr(dev, MT_MAC_CSR0));
 	if (is_soc(dev))
 		mt76_soc_power_on(dev);
 
@@ -538,10 +616,13 @@ int mt76_init_hardware(struct mt76_dev *dev)
 	if (ret)
 		return ret;
 
+	if (is_mt7630(dev))
+		mt7630_phy_init(dev);
+
 	mt76_mac_stop(dev, false);
 	dev->rxfilter = mt76_rr(dev, MT_RX_FILTR_CFG);
 
-	return 0;
+	return -ENOMEM;
 }
 
 void mt76_stop_hardware(struct mt76_dev *dev)
