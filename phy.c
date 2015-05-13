@@ -32,6 +32,11 @@ int mt76_phy_rf_wr(struct mt76_dev *dev, u8 bank, u8 reg, u8 val)
 	return 0;
 }
 
+int mt76_phy_rf_pair_wr(struct mt76_dev *dev, struct mt76_rf_reg_pair *p)
+{
+	return mt76_phy_rf_wr(dev, p->bank, p->reg, p->value);
+}
+
 static bool
 mt76_phy_rf_op(struct mt76_dev *dev, bool idx, u16 offset, bool write)
 {

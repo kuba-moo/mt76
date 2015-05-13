@@ -238,7 +238,10 @@ struct mt76_txq {
 	struct sk_buff_head retry_q;
 };
 
-#define REG_PAIR_COND_BW		GENMASK(1, 0)
+enum mt76_reg_cond {
+	MT_CND_BW_20 = BIT(0),
+	MT_CND_BW_40 = BIT(1),
+};
 
 struct mt76_reg_pair {
 	u32 reg;
